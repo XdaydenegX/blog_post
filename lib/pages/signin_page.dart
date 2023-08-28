@@ -1,12 +1,8 @@
-import 'dart:js_interop';
-import 'dart:math';
-
 import 'package:blog_post/pages/home_page.dart';
 import 'package:blog_post/pages/signup_page.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../storage/user_security_storage.dart';
 import 'package:http/http.dart' as http;
 import '../storage/local_save_token.dart';
@@ -14,14 +10,11 @@ import 'dart:convert';
 
 final _loginformkey = GlobalKey<FormState>();
 
-
 class SignInPage extends StatefulWidget {
   SignInPage({Key, key}) : super(key: key);
 
   @override
-  _SignInPageState createState () => _SignInPageState();
-
-
+  _SignInPageState createState() => _SignInPageState();
 }
 
 class _SignInPageState extends State<SignInPage> {
@@ -39,27 +32,33 @@ class _SignInPageState extends State<SignInPage> {
       "password": password,
     };
     var _body = jsonEncode(bodydata).toString();
-    http.Response response = await http.post(Uri.parse("http://127.0.0.1:8000/api/user/login"),
+    http.Response response = await http.post(
+        Uri.parse("https://blogpost.rfld.ru/api/user/login"),
         body: _body,
         headers: {
           "Content-Type": "application/json",
-        }
-    );
+        });
     final res = jsonDecode(response.body);
-
-    if(res['success']) {
+    print(res);
+    if (res['success']) {
       final accessToken = UserSecurityStorage.setToken(res['response']['token']);
       LocalSaveToken.saveAccessToken(accessToken.toString());
+      UserSecurityStorage.setUsername(res['response']['name']);
+      UserSecurityStorage.setUserEmail(res['response']['email']);
       final token = await UserSecurityStorage.getToken();
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (context) => HomePage()));
       print(token);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    LocalSaveToken.deleteAccessToken();
     return Scaffold(
-      body: Center(
-        child: Column(
+        resizeToAvoidBottomInset: false,
+        body: Center(
+            child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
@@ -68,19 +67,28 @@ class _SignInPageState extends State<SignInPage> {
               child: Column(
                 children: [
                   Image.asset('assets/images/blog_post_logo.png'),
-                  SizedBox(height: 20,),
-                  Text('Вход', textAlign: TextAlign.center,
+                  SizedBox(
+                    height: 20,
+                  ),
+                  Text(
+                    'Вход',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.pinkAccent,
                       fontSize: 30,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
-                  SizedBox(height: 20,),
+                  SizedBox(
+                    height: 20,
+                  ),
                   SizedBox(
                     width: 300,
                     child: TextFormField(
-                      validator: (value) => EmailValidator.validate(value.toString()) ? null : "Please",
+                      validator: (value) =>
+                          EmailValidator.validate(value.toString())
+                              ? null
+                              : "Please",
                       decoration: InputDecoration(
                         labelText: 'Введите email',
                       ),
@@ -89,7 +97,9 @@ class _SignInPageState extends State<SignInPage> {
                       },
                     ),
                   ),
-                  SizedBox(height: 20,),
+                  SizedBox(
+                    height: 20,
+                  ),
                   SizedBox(
                     width: 300,
                     child: TextFormField(
@@ -99,34 +109,33 @@ class _SignInPageState extends State<SignInPage> {
                         }
                         return null;
                       },
-                      decoration: InputDecoration(
-                          labelText: 'Введите пароль'
-                      ),
+                      decoration: InputDecoration(labelText: 'Введите пароль'),
                       obscureText: true,
                       onSaved: (value) {
                         password = value.toString();
                       },
                     ),
                   ),
-                  SizedBox(height: 40,),
+                  SizedBox(
+                    height: 40,
+                  ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       padding: EdgeInsets.all(20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-
                       backgroundColor: Colors.pinkAccent,
                     ),
                     onPressed: () {
                       if (_loginformkey.currentState!.validate()) {
                         _loginformkey.currentState!.save();
                         setState(() {
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomePage()));
+                          // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomePage()));
+                          loginUser(email, password);
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Success'))
-                        );
+                            const SnackBar(content: Text('Success')));
                       }
                     },
                     child: Text(
@@ -139,13 +148,19 @@ class _SignInPageState extends State<SignInPage> {
                 ],
               ),
             ),
-            SizedBox(height: 100,),
-            TextButton(onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => SignUpPage()));
-            }, child: Text('Регистрация', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w300),))
+            SizedBox(
+              height: 100,
+            ),
+            TextButton(
+                onPressed: () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (context) => SignUpPage()));
+                },
+                child: Text(
+                  'Регистрация',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w300),
+                ))
           ],
-        )
-      )
-    );
+        )));
   }
 }
