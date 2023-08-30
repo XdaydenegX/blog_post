@@ -7,11 +7,13 @@ import '../storage/user_security_storage.dart';
 import 'package:http/http.dart' as http;
 import '../storage/local_save_token.dart';
 import 'dart:convert';
+import '../storage/change_notifier.dart';
+import 'package:provider/provider.dart';
 
 final _loginformkey = GlobalKey<FormState>();
 
 class SignInPage extends StatefulWidget {
-  SignInPage({Key, key}) : super(key: key);
+  SignInPage({Key? key}) : super(key: key);
 
   @override
   _SignInPageState createState() => _SignInPageState();
@@ -40,21 +42,19 @@ class _SignInPageState extends State<SignInPage> {
         });
     final res = jsonDecode(response.body);
     print(res);
-    if (res['success']) {
-      final accessToken = UserSecurityStorage.setToken(res['response']['token']);
-      LocalSaveToken.saveAccessToken(accessToken.toString());
-      UserSecurityStorage.setUsername(res['response']['name']);
-      UserSecurityStorage.setUserEmail(res['response']['email']);
-      final token = await UserSecurityStorage.getToken();
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (context) => HomePage()));
-      print(token);
+    if (res['success'] == true) {
+      AuthProvider authProvider = Provider.of<AuthProvider>(context, listen: false);
+      await authProvider.saveToken(res['response']['token'].toString());
+      await authProvider.saveUsername(res['response']['data']['name']);
+      await authProvider.saveEmail(res['response']['data']['email']);
+      print(res['response']);
+      return true;
     }
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
-    LocalSaveToken.deleteAccessToken();
     return Scaffold(
         resizeToAvoidBottomInset: false,
         body: Center(
@@ -88,7 +88,7 @@ class _SignInPageState extends State<SignInPage> {
                       validator: (value) =>
                           EmailValidator.validate(value.toString())
                               ? null
-                              : "Please",
+                              : "Введите корректный email",
                       decoration: InputDecoration(
                         labelText: 'Введите email',
                       ),
@@ -130,12 +130,18 @@ class _SignInPageState extends State<SignInPage> {
                     onPressed: () {
                       if (_loginformkey.currentState!.validate()) {
                         _loginformkey.currentState!.save();
-                        setState(() {
-                          // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomePage()));
-                          loginUser(email, password);
+                        setState(() async {
+                          bool response = await loginUser(email, password);
+                          if (response) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Success')));
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomePage()));
+                          }
+                          else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Error')));
+                          }
                         });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Success')));
                       }
                     },
                     child: Text(

@@ -36,6 +36,7 @@ class _SignUpState extends State<SignUpPage> {
     final res = jsonDecode(response.body);
 
     if (res['success']) {
+      print(res['response']);
       Navigator.push(
           context, MaterialPageRoute(builder: (context) => SignInPage()));
     }
@@ -158,7 +159,9 @@ class _SignUpState extends State<SignUpPage> {
                       if (_registerformkey.currentState!.validate()) {
                         _registerformkey.currentState!.save();
                         // data = registerUser(name, email, password);
-                        registerUser(name, email, password);
+                        setState(() {
+                          registerUser(name, email, password);
+                        });
 
                         ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Success')));

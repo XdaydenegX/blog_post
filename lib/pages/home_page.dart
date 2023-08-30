@@ -1,6 +1,7 @@
 import 'package:blog_post/pages/post_detail_page.dart';
 import 'package:blog_post/pages/signin_page.dart';
 import 'package:flutter/material.dart';
+import '../storage/change_notifier.dart';
 import '../storage/local_save_token.dart';
 import '../storage/user_security_storage.dart';
 import '../pages/profile_page.dart';
@@ -8,10 +9,13 @@ import '../pages/notification_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widget/post_view_widget.dart';
+import 'package:provider/provider.dart';
+import '../storage/change_notifier.dart';
+import '../widget/my_posts_widget.dart';
 
 class HomePage extends StatefulWidget {
 
-  HomePage({Key, key}) : super(key: key);
+  HomePage({Key? key}) : super(key: key);
 
   @override
   _HomePageState createState() => _HomePageState();
@@ -19,8 +23,38 @@ class HomePage extends StatefulWidget {
 
 
 class _HomePageState extends State<HomePage> {
+  var myposts;
+  var mypostscount;
   var posts;
   var postsCount;
+  var username = 'Гость';
+
+  var refreshKey = GlobalKey<RefreshIndicatorState>();
+
+  getName() async {
+    AuthProvider authProvider = Provider.of<AuthProvider>(context);
+    username = await authProvider.getUsername();
+  }
+
+  void test() {
+    print('component is mount');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    refreshList();
+    test();
+  }
+
+  Future<Null> refreshList() async {
+    refreshKey.currentState?.show();
+    await Future.delayed(Duration(seconds: 2));
+    return null;
+  }
+
+
+
   getPosts() async {
     http.Response response = await http.get(
         Uri.parse("https://blogpost.rfld.ru/api/posts"),
@@ -31,19 +65,20 @@ class _HomePageState extends State<HomePage> {
     if (res['success']) {
       posts = res['response'];
       postsCount = posts.length;
-      return posts;
+      print(posts[3]);
     }
   }
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   getPosts();
-  // }
+  deleteToken() async {
+    AuthProvider authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.removeToken();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    getName();
+    return
+      Scaffold(
       appBar: AppBar(
             centerTitle: true,
             title: Text('BlogPost'),
@@ -69,7 +104,19 @@ class _HomePageState extends State<HomePage> {
                   SizedBox(width: 20,),
                   Column(
                     children: <Widget>[
-                      Text('X_daydeneg_X', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500),),
+                      FutureBuilder(future: getName(), builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.done) {
+                          return Text(username,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w500
+                            ),
+                          );
+                        } else
+                          return Text('Пользователь...');
+                      }),
                     ],
                   )
                 ],
@@ -80,7 +127,7 @@ class _HomePageState extends State<HomePage> {
                 SizedBox(height: 1,),
                 ButtonWidget('Профиль', () => {Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfilePage()))}),
                 ButtonWidget('Уведомления', () => {Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => NotificationPage()))}),
-                ButtonWidget('Удалитть аккаунт', () => null),
+                ButtonWidget('Удалить аккаунт', () => null),
                 ButtonWidget('Выйти из аккаунта', () => {
                   showDialog(
                       context: context,
@@ -90,8 +137,9 @@ class _HomePageState extends State<HomePage> {
                         actions: [
                           TextButton(onPressed: () => {Navigator.pop(context)}, child: Text('Отмена')),
                           TextButton(onPressed: () => {
-                            LocalSaveToken.deleteAccessToken(),
-                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => SignInPage()))
+                            deleteToken(),
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => SignInPage())),
+
                           }, child: Text('Ок')),
                         ],
                       )
@@ -105,7 +153,10 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      body: Column(
+      body: RefreshIndicator(
+        key: refreshKey,
+        onRefresh: refreshList,
+        child: Column(
           children: <Widget>[
             SizedBox(height: 20,),
             SizedBox(
@@ -120,96 +171,196 @@ class _HomePageState extends State<HomePage> {
             ),
             SizedBox(height: 20,),
             Expanded(
-                child: DefaultTabController(
-                  length: 2,
-                  child: Column(
-                    children: [
-                      TabBar(
-                        unselectedLabelColor: Colors.blue,
-                        indicatorColor: Colors.pinkAccent,
-                        labelColor: Colors.pinkAccent,
-                        tabs: [
-                          Tab(
-                            text: 'Посты',
+              child: DefaultTabController(
+                length: 2,
+                child: Column(
+                  children: [
+                    TabBar(
+                      unselectedLabelColor: Colors.blue,
+                      indicatorColor: Colors.pinkAccent,
+                      labelColor: Colors.pinkAccent,
+                      tabs: [
+                        Tab(
+                          text: 'Посты',
+                        ),
+                        Tab(
+                          text: 'Мои посты',
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          FutureBuilder(future: getPosts(), builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.done) {
+                              return ListView.builder(
+                                  addAutomaticKeepAlives: true,
+                                  padding: const EdgeInsets.all(8),
+                                  itemCount: postsCount,
+                                  itemBuilder: (BuildContext context, int index) {
+                                    return Container(
+                                      child: FutureBuilder(
+                                        future: getPosts(),
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState == ConnectionState.waiting) {
+                                            return SizedBox(
+                                              height: 370,
+                                              child: CircularProgressIndicator(
+                                                backgroundColor: Colors.blue[200],
+                                                valueColor: AlwaysStoppedAnimation(Colors.pinkAccent),
+                                              ),
+                                            );
+                                          }
+                                          else {
+                                            return PostViewWidget(posts[index]['name'], posts[index]['author']['name'], posts[index]['created_at'], posts[index]['id']);
+                                          }
+                                        },
+                                      ),
+                                    );
+                                    // PostViewWidget(posts[index]['name'], posts[index]['author']['name'], posts[index]['created_at']);
+                                  }
+                              );
+                            }
+                            else {return CircularProgressIndicator();}
+                          }),
+                          ListView.builder(
+                              padding: const EdgeInsets.all(8),
+                              itemCount: postsCount,
+                              itemBuilder: (BuildContext context, int index) {
+                                return FutureBuilder(
+                                  future: getPosts(),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState == ConnectionState.waiting) {
+                                      return SizedBox(
+                                        height: 370,
+                                        child: CircularProgressIndicator(
+                                          backgroundColor: Colors.blue[200],
+                                          valueColor: AlwaysStoppedAnimation(Colors.pinkAccent),
+                                        ),
+                                      );
+                                    }
+                                    else {
+                                      print(postsCount);
+                                      return PostViewWidget(posts[index]['name'], posts[index]['author']['name'], posts[index]['created_at'], posts[index]['id']);
+                                    }
+                                  },
+                                );
+                              }
                           ),
-                          Tab(
-                            text: 'Мои посты',
-                          ),
+
+                          // содержимое второго таба
                         ],
                       ),
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            ListView.builder(
-                                padding: const EdgeInsets.all(8),
-                                itemCount: postsCount,
-                                itemBuilder: (BuildContext context, int index) {
-                                  return Container(
-                                    child: FutureBuilder(
-                                      future: getPosts(),
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState == ConnectionState.waiting) {
-                                          return SizedBox(
-                                            height: 370,
-                                            child: CircularProgressIndicator(
-                                              backgroundColor: Colors.blue[200],
-                                              valueColor: AlwaysStoppedAnimation(Colors.pinkAccent),
-                                            ),
-                                          );
-                                        }
-                                        else {
-                                          return PostViewWidget(posts[index]['name'], posts[index]['author']['name'], posts[index]['created_at'], posts[index]['id']);
-                                        }
-                                      },
-                                    ),
-                                  );
-                                    // PostViewWidget(posts[index]['name'], posts[index]['author']['name'], posts[index]['created_at']);
-                                }
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: <Widget>[
-                                Container(
-                                  child: Center(
-                                    child: Text('Добавить пост', style: TextStyle(color: Colors.white, fontSize: 20),),
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue
-                                  ),
-                                  width: double.infinity,
-                                  height: 50,
-                                  margin: EdgeInsets.only(
-                                    top: 10.0
-                                  ),
-                                )
-                              ],
-                            ),
-                            // содержимое второго таба
-                            ListView.builder(
-                                padding: const EdgeInsets.all(8),
-                                itemCount: 3,
-                                itemBuilder: (BuildContext context, int index) {
-                                  return Container(
-                                      padding: EdgeInsets.symmetric(vertical: 10),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: [
-                                          Text("My posts (пока нет)", style: TextStyle(fontSize: 22)),
-                                        ],
-                                      )
-                                  );
-                                }
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
             )
           ],
         ),
+      ),
+
+      // Column(
+      //     children: <Widget>[
+      //       SizedBox(height: 20,),
+      //       SizedBox(
+      //         width: 350,
+      //         child: TextFormField(
+      //           decoration: const InputDecoration(
+      //             labelText: "Поиск постов",
+      //             hintText: "Поиск постов",
+      //             prefixIcon: Icon(Icons.search),
+      //           ),
+      //         ),
+      //       ),
+      //       SizedBox(height: 20,),
+      //       Expanded(
+      //           child: DefaultTabController(
+      //             length: 2,
+      //             child: Column(
+      //               children: [
+      //                 TabBar(
+      //                   unselectedLabelColor: Colors.blue,
+      //                   indicatorColor: Colors.pinkAccent,
+      //                   labelColor: Colors.pinkAccent,
+      //                   tabs: [
+      //                     Tab(
+      //                       text: 'Посты',
+      //                     ),
+      //                     Tab(
+      //                       text: 'Мои посты',
+      //                     ),
+      //                   ],
+      //                 ),
+      //                 Expanded(
+      //                   child: TabBarView(
+      //                     children: [
+      //                       FutureBuilder(future: getPosts(), builder: (context, snapshot) {
+      //                         if (snapshot.connectionState == ConnectionState.done) {
+      //                           return ListView.builder(
+      //                               padding: const EdgeInsets.all(8),
+      //                               itemCount: postsCount,
+      //                               itemBuilder: (BuildContext context, int index) {
+      //                                 return Container(
+      //                                   child: FutureBuilder(
+      //                                     future: getPosts(),
+      //                                     builder: (context, snapshot) {
+      //                                       if (snapshot.connectionState == ConnectionState.waiting) {
+      //                                         return SizedBox(
+      //                                           height: 370,
+      //                                           child: CircularProgressIndicator(
+      //                                             backgroundColor: Colors.blue[200],
+      //                                             valueColor: AlwaysStoppedAnimation(Colors.pinkAccent),
+      //                                           ),
+      //                                         );
+      //                                       }
+      //                                       else {
+      //                                         return PostViewWidget(posts[index]['name'] + "${postsCount} ${index}", posts[index]['author']['name'], posts[index]['created_at'], posts[index]['id']);
+      //                                       }
+      //                                     },
+      //                                   ),
+      //                                 );
+      //                                 // PostViewWidget(posts[index]['name'], posts[index]['author']['name'], posts[index]['created_at']);
+      //                               }
+      //                           );
+      //                         }
+      //                         else {return CircularProgressIndicator();}
+      //                       }),
+      //                       ListView.builder(
+      //                           padding: const EdgeInsets.all(8),
+      //                           itemCount: postsCount,
+      //                           itemBuilder: (BuildContext context, int index) {
+      //                             return FutureBuilder(
+      //                               future: getPosts(),
+      //                               builder: (context, snapshot) {
+      //                                 if (snapshot.connectionState == ConnectionState.waiting) {
+      //                                   return SizedBox(
+      //                                     height: 370,
+      //                                     child: CircularProgressIndicator(
+      //                                       backgroundColor: Colors.blue[200],
+      //                                       valueColor: AlwaysStoppedAnimation(Colors.pinkAccent),
+      //                                     ),
+      //                                   );
+      //                                 }
+      //                                 else {
+      //                                   print(postsCount);
+      //                                   return PostViewWidget(posts[index]['name'] +  "${postsCount} ${index}", posts[index]['author']['name'] + "${postsCount}", posts[index]['created_at'], posts[index]['id']);
+      //                                 }
+      //                               },
+      //                             );
+      //                           }
+      //                         ),
+      //
+      //                       // содержимое второго таба
+      //                     ],
+      //                   ),
+      //                 ),
+      //               ],
+      //             ),
+      //           ),
+      //       )
+      //     ],
+      //   ),
     );
   }
 }

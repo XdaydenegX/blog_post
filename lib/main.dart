@@ -1,13 +1,21 @@
 import 'package:blog_post/pages/signin_page.dart';
+import 'package:blog_post/storage/local_save_token.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/home_page.dart';
+import 'package:provider/provider.dart';
+import '../storage/change_notifier.dart';
 
 void main() {
-  runApp(BlogPost());
+  runApp(ChangeNotifierProvider(
+    create: (context) => AuthProvider(),
+    child: BlogPost(),
+  ),);
 }
 
 class BlogPost extends StatefulWidget {
+  final authProvider = AuthProvider();
+
   @override
   _BlogPostState createState() => _BlogPostState();
 }
@@ -15,28 +23,30 @@ class BlogPost extends StatefulWidget {
 class _BlogPostState extends State<BlogPost> {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'BlogPost',
-      theme: ThemeData(),
-      home: FutureBuilder(
-          future: checkTokenExists(),
-          builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
-            if (snapshot.hasData) {
-              bool tokenExists = snapshot.data!;
-              if (tokenExists) {
-                return HomePage();
-              } else {
-                return SignInPage();
-              }
+    return ChangeNotifierProvider(
+      create: (context) => AuthProvider(),
+      child: MaterialApp(
+        title: 'BlogPost',
+        home: Consumer<AuthProvider>(
+          builder: (context, authProvider, child) {
+            if (authProvider.token == null) {
+              return SignInPage();
             } else {
               return HomePage();
             }
-          }),
+          },
+        ),
+      ),
     );
   }
 
-  Future<bool> checkTokenExists() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey('accessToken');
-  }
+  // Future<Widget> checkToken() async {
+  //   String? token = LocalSaveToken.getAccessToken().toString();
+  //
+  //   if (token != null) {
+  //     return HomePage();
+  //   } else {
+  //     return SignInPage();
+  //   }
+  // }
 }
