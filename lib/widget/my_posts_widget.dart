@@ -23,19 +23,6 @@ class _MyPostsState extends State<MyPostsWidget> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.start,
               children: <Widget>[
-                Container(
-                  child: Center(
-                    child: Text('Добавить пост', style: TextStyle(color: Colors.white, fontSize: 20),),
-                  ),
-                  decoration: BoxDecoration(
-                      color: Colors.blue
-                  ),
-                  width: double.infinity,
-                  height: 50,
-                  margin: EdgeInsets.only(
-                      top: 10.0
-                  ),
-                ),
               ],
             ),
             Text("My posts (пока нет)", style: TextStyle(fontSize: 22)),

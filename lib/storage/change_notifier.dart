@@ -34,13 +34,13 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> checkToken() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString('token');
+    _token = prefs.getString('accessToken');
     notifyListeners();
   }
 
   Future<void> saveToken(String token) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('token', token);
+    await prefs.setString('accessToken', token);
     _token = token;
     notifyListeners();
   }
@@ -52,8 +52,7 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> removeToken() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    _token = null;
+    await prefs.remove('accessToken');
     notifyListeners();
   }
 }

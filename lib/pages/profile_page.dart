@@ -1,13 +1,14 @@
 import 'package:blog_post/pages/home_page.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../storage/change_notifier.dart';
+import 'package:email_validator/email_validator.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
-final _switchuserinfoformkey = GlobalKey<FormState>();
 
 class ProfilePage extends StatefulWidget {
-
-  ProfilePage({Key, key}) : super(key: key);
 
   @override
   _ProfileState createState() => _ProfileState();
@@ -18,15 +19,66 @@ class _ProfileState extends State<ProfilePage> {
   String _email = '';
   String name = "";
   String email = "";
+  var token;
+
+  final _edituserinfo = GlobalKey<FormState>();
+
+  getToken() async {
+    AuthProvider authProvider = Provider.of<AuthProvider>(context, listen: false);
+    token = await authProvider.getAccessToken();
+    print(token);
+  }
 
   fetchUserInfo() async {
-    AuthProvider authProvider = Provider.of<AuthProvider>(context);
-    name = await authProvider.getUsername();
-    email = await authProvider.getEmail();
+    http.Response response = await http.get(
+        Uri.parse("https://blogpost.rfld.ru/api/user"),
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': 'Bearer $token',
+        });
+    final res = jsonDecode(response.body);
+    if (res['success']) {
+      name = res['response']['name'].toString();
+      email = res['response']['email'].toString();
+      print("name: ${name}\n\nemail: ${email}");
+    }
   }
+
+  void initState() {
+    super.initState();
+    Future.delayed(Duration.zero, () {
+      getToken();
+      fetchUserInfo();
+    });
+  }
+
+
+  editUserInfo() async {
+    if (token != null) {
+      var bodydata = {
+        "name": _name,
+        "email": _email,
+      };
+      var _body = jsonEncode(bodydata).toString();
+      http.Response response = await http.post(
+          Uri.parse("https://blogpost.rfld.ru/api/user/edit"),
+          body: _body,
+          headers: {
+            "Content-Type": "application/json",
+            'Authorization': 'Bearer $token',
+          });
+      final res = jsonDecode(response.body);
+      if (res['success']) {
+        name = res['response']['name'];
+        email = res['response']['email'];
+      }
+      }
+    }
 
   @override 
   Widget build(BuildContext context) {
+    getToken();
+    fetchUserInfo();
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: PreferredSize(
@@ -89,7 +141,7 @@ class _ProfileState extends State<ProfilePage> {
             ],
           ),
           Form(
-            key: _switchuserinfoformkey,
+            key: _edituserinfo,
             child: Column(
               children: [
                 SizedBox(
@@ -119,7 +171,7 @@ class _ProfileState extends State<ProfilePage> {
                     decoration: InputDecoration(
                       labelText: 'Сменить имя',
                     ),
-                    onSaved: (value) {
+                    onChanged: (value) {
                       _name = value.toString();
                     },
                   ),
@@ -130,14 +182,12 @@ class _ProfileState extends State<ProfilePage> {
                 SizedBox(
                   width: 300,
                   child: TextFormField(
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Пустое поле!';
-                      }
-                      return null;
-                    },
+                    validator: (value) =>
+                    EmailValidator.validate(value.toString())
+                        ? null
+                        : "Введите корректный email",
                     decoration: InputDecoration(labelText: 'Сменить email'),
-                    onSaved: (value) {
+                    onChanged: (value) {
                       _email = value.toString();
                     },
                   ),
@@ -154,18 +204,22 @@ class _ProfileState extends State<ProfilePage> {
                     backgroundColor: Colors.pinkAccent,
                   ),
                   onPressed: () {
-                    if (_switchuserinfoformkey.currentState!.validate()) {
-                      _switchuserinfoformkey.currentState!.save();
-                      setState(() {
-                        print("name: ${name}\n\nemail: ${email}");
-                        // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomePage()));
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Success')));
-                    }
-                  },
+                      if (_edituserinfo.currentState!.validate()) {
+                        _edituserinfo.currentState!.save();
+                        setState(() {
+                          editUserInfo();
+                          print("name: ${_name}\n\nemail: ${_email}");
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Success')));
+                      }
+                      else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Error')));
+                      }
+                    },
                   child: Text(
-                    'Войти',
+                    'Изменить данные',
                     style: TextStyle(
                       fontSize: 20,
                     ),

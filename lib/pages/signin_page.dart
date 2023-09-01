@@ -24,9 +24,6 @@ class _SignInPageState extends State<SignInPage> {
   var password;
   var data;
 
-  // generateMd5(String data) {
-  //   return bchash.BCrypt.hashpw(data, bchash.BCrypt.gensalt());
-  // }
 
   loginUser(String email, String password) async {
     var bodydata = {
@@ -47,7 +44,9 @@ class _SignInPageState extends State<SignInPage> {
       await authProvider.saveToken(res['response']['token'].toString());
       await authProvider.saveUsername(res['response']['data']['name']);
       await authProvider.saveEmail(res['response']['data']['email']);
+      var token = await authProvider.getAccessToken();
       print(res['response']);
+      print("token: ${token}");
       return true;
     }
     return false;

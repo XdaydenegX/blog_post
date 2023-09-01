@@ -2,7 +2,6 @@ import 'package:blog_post/pages/post_detail_page.dart';
 import 'package:blog_post/pages/signin_page.dart';
 import 'package:flutter/material.dart';
 import '../storage/change_notifier.dart';
-import '../storage/local_save_token.dart';
 import '../storage/user_security_storage.dart';
 import '../pages/profile_page.dart';
 import '../pages/notification_page.dart';
@@ -12,10 +11,15 @@ import '../widget/post_view_widget.dart';
 import 'package:provider/provider.dart';
 import '../storage/change_notifier.dart';
 import '../widget/my_posts_widget.dart';
+import '../pages/create_post_page.dart';
+
+
+// final refreshKey = GlobalKey<RefreshIndicatorState>();
+
+
 
 class HomePage extends StatefulWidget {
 
-  HomePage({Key? key}) : super(key: key);
 
   @override
   _HomePageState createState() => _HomePageState();
@@ -25,49 +29,103 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   var myposts;
   var mypostscount;
-  var posts;
+  var posts = [];
   var postsCount;
   var username = 'Гость';
+  var serchfieldtext;
+  var token;
+  var userPosts;
 
-  var refreshKey = GlobalKey<RefreshIndicatorState>();
+  getUserPosts() async {
+    http.Response response = await http.get(
+        Uri.parse("https://blogpost.rfld.ru/api/user/posts"),
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': 'Bearer $token',
+        });
+    final res = jsonDecode(response.body);
+    if (res['success']) {
+      userPosts = res['response'];
+      userPosts = new List.from(userPosts.reversed);
+    }
+  }
+
+  getToken() async {
+    AuthProvider authProvider = Provider.of<AuthProvider>(context);
+    token = await authProvider.getAccessToken();
+    print(token);
+  }
 
   getName() async {
-    AuthProvider authProvider = Provider.of<AuthProvider>(context);
-    username = await authProvider.getUsername();
+    http.Response response = await http.get(
+        Uri.parse("https://blogpost.rfld.ru/api/user"),
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': 'Bearer $token',
+        });
+    final res = jsonDecode(response.body);
+    if (res['success']) {
+      username = res['response']['name'].toString();
+      print('name: $username');
+    }
   }
 
-  void test() {
-    print('component is mount');
-  }
 
   @override
   void initState() {
     super.initState();
-    refreshList();
-    test();
+    Future.delayed(Duration.zero, () {
+      getToken();
+      getName();
+      getUserPosts();
+    });
   }
 
-  Future<Null> refreshList() async {
-    refreshKey.currentState?.show();
-    await Future.delayed(Duration(seconds: 2));
-    return null;
+  deleteUser () async {
+    http.Response response = await http.delete(
+        Uri.parse("https://blogpost.rfld.ru/api/user/destroy"),
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': 'Bearer $token',
+        });
+    var res = jsonDecode(response.body);
+    if (res['success']) {
+      print("response: ${res['response']}");
+    }
+    else {
+      print(' === error: ERROR! === ');
+    }
   }
 
 
-
-  getPosts() async {
+  searchPosts() async {
     http.Response response = await http.get(
-        Uri.parse("https://blogpost.rfld.ru/api/posts"),
+        Uri.parse("https://blogpost.rfld.ru/api/posts/search?text=${serchfieldtext}"),
         headers: {
           "Content-Type": "application/json",
         });
     var res = jsonDecode(response.body);
     if (res['success']) {
+      posts.clear();
       posts = res['response'];
-      postsCount = posts.length;
-      print(posts[3]);
+      print(posts);
+      print(serchfieldtext);
     }
   }
+
+  getPosts() async {
+      http.Response response = await http.get(
+          Uri.parse("https://blogpost.rfld.ru/api/posts"),
+          headers: {
+            "Content-Type": "application/json",
+          });
+      var res = jsonDecode(response.body);
+      if (res['success']) {
+        posts = res['response'];
+        posts = new List.from(posts.reversed);
+      }
+      return;
+    }
 
   deleteToken() async {
     AuthProvider authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -76,6 +134,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    getToken();
     getName();
     return
       Scaffold(
@@ -127,7 +186,22 @@ class _HomePageState extends State<HomePage> {
                 SizedBox(height: 1,),
                 ButtonWidget('Профиль', () => {Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfilePage()))}),
                 ButtonWidget('Уведомления', () => {Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => NotificationPage()))}),
-                ButtonWidget('Удалить аккаунт', () => null),
+                ButtonWidget('Удалить аккаунт', () => {
+                  showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('Вы точно хотите удалить аккаунт?'),
+                        content: Text('Если вы удалите аккунт, вам прийдется заного регистрироваться.'),
+                        actions: [
+                          TextButton(onPressed: () => {Navigator.pop(context)}, child: Text('Отмена')),
+                          TextButton(onPressed: () => {
+                            deleteUser(),
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => SignInPage())),
+                          }, child: Text('Ок')),
+                        ],
+                      )
+                  )
+                }),
                 ButtonWidget('Выйти из аккаунта', () => {
                   showDialog(
                       context: context,
@@ -153,23 +227,63 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      body: RefreshIndicator(
-        key: refreshKey,
-        onRefresh: refreshList,
-        child: Column(
+      body: Column(
           children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Form(
+                  child: Row(
+                    children: <Widget>[
+                      SizedBox(
+                        width: 300,
+                        child: TextFormField(
+                          decoration: const InputDecoration(
+                            labelText: "Поиск постов",
+                            hintText: "Поиск постов",
+                          ),
+                          onChanged: (value) {
+                            serchfieldtext  = value.toString();
+                          },
+                        ),
+                      ),
+                      IconButton(onPressed: () {
+                        setState(() {
+                          searchPosts();
+                          print(serchfieldtext);
+                        });
+                      }, icon: Icon(
+                          Icons.search
+                      )),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             SizedBox(height: 20,),
             SizedBox(
-              width: 350,
-              child: TextFormField(
-                decoration: const InputDecoration(
-                  labelText: "Поиск постов",
-                  hintText: "Поиск постов",
-                  prefixIcon: Icon(Icons.search),
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.all(20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(0),
+                  ),
+
+                  backgroundColor: Colors.blueAccent,
+                ),
+                onPressed: () {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CreatePostPage()));
+                },
+                child: Text(
+                  'Создать пост',
+                  style: TextStyle(
+                    fontSize: 20,
+                  ),
                 ),
               ),
             ),
-            SizedBox(height: 20,),
             Expanded(
               child: DefaultTabController(
                 length: 2,
@@ -196,7 +310,7 @@ class _HomePageState extends State<HomePage> {
                               return ListView.builder(
                                   addAutomaticKeepAlives: true,
                                   padding: const EdgeInsets.all(8),
-                                  itemCount: postsCount,
+                                  itemCount: posts.length,
                                   itemBuilder: (BuildContext context, int index) {
                                     return Container(
                                       child: FutureBuilder(
@@ -223,30 +337,38 @@ class _HomePageState extends State<HomePage> {
                             }
                             else {return CircularProgressIndicator();}
                           }),
-                          ListView.builder(
-                              padding: const EdgeInsets.all(8),
-                              itemCount: postsCount,
-                              itemBuilder: (BuildContext context, int index) {
-                                return FutureBuilder(
-                                  future: getPosts(),
-                                  builder: (context, snapshot) {
-                                    if (snapshot.connectionState == ConnectionState.waiting) {
-                                      return SizedBox(
-                                        height: 370,
-                                        child: CircularProgressIndicator(
-                                          backgroundColor: Colors.blue[200],
-                                          valueColor: AlwaysStoppedAnimation(Colors.pinkAccent),
-                                        ),
-                                      );
-                                    }
-                                    else {
-                                      print(postsCount);
-                                      return PostViewWidget(posts[index]['name'], posts[index]['author']['name'], posts[index]['created_at'], posts[index]['id']);
-                                    }
-                                  },
-                                );
-                              }
-                          ),
+                          FutureBuilder(future: getUserPosts(), builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.done) {
+                              return ListView.builder(
+                                  addAutomaticKeepAlives: true,
+                                  padding: const EdgeInsets.all(8),
+                                  itemCount: userPosts.length,
+                                  itemBuilder: (BuildContext context, int index) {
+                                    return Container(
+                                      child: FutureBuilder(
+                                        future: getUserPosts(),
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState == ConnectionState.waiting) {
+                                            return SizedBox(
+                                              height: 370,
+                                              child: CircularProgressIndicator(
+                                                backgroundColor: Colors.blue[200],
+                                                valueColor: AlwaysStoppedAnimation(Colors.pinkAccent),
+                                              ),
+                                            );
+                                          }
+                                          else {
+                                            return PostViewWidget(userPosts[index]['name'], userPosts[index]['author']['name'], userPosts[index]['created_at'], userPosts[index]['id']);
+                                          }
+                                        },
+                                      ),
+                                    );
+                                    // PostViewWidget(posts[index]['name'], posts[index]['author']['name'], posts[index]['created_at']);
+                                  }
+                              );
+                            }
+                            else {return CircularProgressIndicator();}
+                          }),
 
                           // содержимое второго таба
                         ],
@@ -258,7 +380,6 @@ class _HomePageState extends State<HomePage> {
             )
           ],
         ),
-      ),
 
       // Column(
       //     children: <Widget>[
