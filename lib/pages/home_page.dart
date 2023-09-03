@@ -27,12 +27,13 @@ class HomePage extends StatefulWidget {
 
 
 class _HomePageState extends State<HomePage> {
+  final searchformkey = GlobalKey<FormState>();
   var myposts;
   var mypostscount;
   var posts = [];
   var postsCount;
   var username = 'Гость';
-  var serchfieldtext;
+  var searchfieldtext;
   var token;
   var userPosts;
 
@@ -78,6 +79,7 @@ class _HomePageState extends State<HomePage> {
       getToken();
       getName();
       getUserPosts();
+      getPosts();
     });
   }
 
@@ -100,7 +102,7 @@ class _HomePageState extends State<HomePage> {
 
   searchPosts() async {
     http.Response response = await http.get(
-        Uri.parse("https://blogpost.rfld.ru/api/posts/search?text=${serchfieldtext}"),
+        Uri.parse("https://blogpost.rfld.ru/api/posts/search?text=${searchfieldtext}"),
         headers: {
           "Content-Type": "application/json",
         });
@@ -108,8 +110,9 @@ class _HomePageState extends State<HomePage> {
     if (res['success']) {
       posts.clear();
       posts = res['response'];
-      print(posts);
-      print(serchfieldtext);
+      print(" +++++ $posts +++++");
+      print(searchfieldtext);
+      return posts;
     }
   }
 
@@ -124,7 +127,6 @@ class _HomePageState extends State<HomePage> {
         posts = res['response'];
         posts = new List.from(posts.reversed);
       }
-      return;
     }
 
   deleteToken() async {
@@ -136,6 +138,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     getToken();
     getName();
+    getPosts();
     return
       Scaffold(
       appBar: AppBar(
@@ -234,24 +237,26 @@ class _HomePageState extends State<HomePage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Form(
+                  key: searchformkey,
                   child: Row(
                     children: <Widget>[
                       SizedBox(
                         width: 300,
                         child: TextFormField(
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: "Поиск постов",
                             hintText: "Поиск постов",
                           ),
                           onChanged: (value) {
-                            serchfieldtext  = value.toString();
+                            searchfieldtext  = value;
                           },
                         ),
                       ),
                       IconButton(onPressed: () {
+                        searchformkey.currentState!.save();
                         setState(() {
                           searchPosts();
-                          print(serchfieldtext);
+                          print(searchfieldtext);
                         });
                       }, icon: Icon(
                           Icons.search

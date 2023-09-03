@@ -55,6 +55,7 @@ class AuthProvider with ChangeNotifier {
     await prefs.remove('accessToken');
     notifyListeners();
   }
+
 }
 
 class SaveNotify extends ChangeNotifier {

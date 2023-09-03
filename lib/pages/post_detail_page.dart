@@ -6,10 +6,12 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:like_button/like_button.dart';
 import '../pages/comment_page.dart';
-
+import '../storage/change_notifier.dart';
+import 'package:provider/provider.dart';
 
 class PostDetailPage extends StatefulWidget {
-  final int postId;
+  var postId;
+
   PostDetailPage(this.postId);
 
 
@@ -20,15 +22,49 @@ class PostDetailPage extends StatefulWidget {
 class _PostDetailState extends State<PostDetailPage> {
   var postDetail;
   var commentsCount;
+  var token;
+  int likeCount = 0;
+  bool likeStatus = false;
+
+  getToken() async {
+    AuthProvider authProvider = Provider.of<AuthProvider>(context, listen: false);
+    token = await authProvider.getAccessToken();
+    print(token);
+  }
 
   void initState() {
     super.initState();
     Future.delayed(Duration.zero, () {
-      getCommentsCount();
+      getToken();
     });
   }
 
-  getPostDetail () async {
+  likedPost() async {
+    http.Response response = await http.post(
+        Uri.parse("https://blogpost.rfld.ru/api/posts/${widget.postId}/like"),
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': 'Bearer $token',
+        });
+    var res = await jsonDecode(response.body);
+    if (res['success']) {
+    }
+  }
+
+  getPostLike() async {
+    http.Response response = await http.get(
+        Uri.parse("https://blogpost.rfld.ru/api/posts/detail/${widget.postId}"),
+        headers: {
+          "Content-Type": "application/json",
+        });
+    var res = jsonDecode(response.body);
+    if (res['success']) {
+      likeCount = res['response']['count_like'];
+      likeStatus = res['response']['user_like'];
+    }
+  }
+
+  getPostDetail() async {
     http.Response response = await http.get(
         Uri.parse("https://blogpost.rfld.ru/api/posts/detail/${widget.postId}"),
         headers: {
@@ -37,6 +73,8 @@ class _PostDetailState extends State<PostDetailPage> {
     var res = jsonDecode(response.body);
     if (res['success']) {
       postDetail = res['response'];
+      likeStatus = res['response']['user_like'];
+      print(' ++++++ like status: ${likeStatus} ++++++ ');
       print(widget.postId);
       return postDetail;
     }
@@ -57,12 +95,28 @@ class _PostDetailState extends State<PostDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    getCommentsCount();
     return Scaffold(
       appBar: AppBar(
         title: Text('Назад'),
         actions: [
-          LikeButton(size: 20, likeCount: 1020, countPostion: CountPostion.bottom, bubblesSize: 0, circleColor: CircleColor(start: Colors.pinkAccent, end: Colors.pink.shade50),),
+          FutureBuilder(future: getPostLike(), builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done) {
+              return Row(
+                children: [
+                  IconButton(onPressed: () => {
+                    setState(() {
+                      likedPost();
+                    })
+                  },
+                      icon: Icon(FontAwesomeIcons.solidHeart, color: likeStatus ? Colors.pinkAccent : Colors.white,)),
+                  Text(likeCount.toString(), style: TextStyle(color: Colors.white, fontSize: 20),),
+                ],
+              );
+            }
+            else {
+              return CircularProgressIndicator();
+            }
+          }),
           Row(
             children: [
             IconButton(onPressed: () => {
@@ -70,13 +124,14 @@ class _PostDetailState extends State<PostDetailPage> {
             }, icon: Icon(Icons.insert_comment, color: Colors.white,)),
             FutureBuilder(future: getCommentsCount(), builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done) {
-                return Text(commentsCount.toString());
+                return Text(commentsCount.toString(), style: TextStyle(fontSize: 20),);
               }
               else {
                 return CircularProgressIndicator();
               }
             })
-            ],)
+            ],
+          )
         ],
       ),
       body: FutureBuilder(
