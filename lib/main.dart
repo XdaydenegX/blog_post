@@ -5,8 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/home_page.dart';
 import 'package:provider/provider.dart';
 import '../storage/change_notifier.dart';
+import 'package:flutter/services.dart';
 
 void main() {
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(ChangeNotifierProvider(
     create: (context) => AuthProvider(),
     child: BlogPost(),
@@ -16,37 +19,29 @@ void main() {
 class BlogPost extends StatefulWidget {
   final authProvider = AuthProvider();
 
+
   @override
   _BlogPostState createState() => _BlogPostState();
 }
 
 class _BlogPostState extends State<BlogPost> {
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => AuthProvider(),
-      child: MaterialApp(
-        title: 'BlogPost',
-        home: Consumer<AuthProvider>(
-          builder: (context, authProvider, child) {
-            if (authProvider.token == null) {
-              return SignInPage();
-            } else {
+        create: (context) => AuthProvider(),
+        child: MaterialApp(
+          title: 'BlogPost',
+          home: Consumer<AuthProvider>(
+            builder: (context, authProvider, child) {
+              if (authProvider.token == null) {
+                return SignInPage();
+              } else {
               return HomePage();
+              }
             }
-          },
-        ),
-      ),
+          )
+        )
     );
   }
-
-  // Future<Widget> checkToken() async {
-  //   String? token = LocalSaveToken.getAccessToken().toString();
-  //
-  //   if (token != null) {
-  //     return HomePage();
-  //   } else {
-  //     return SignInPage();
-  //   }
-  // }
 }

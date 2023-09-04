@@ -77,6 +77,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     Future.delayed(Duration.zero, () {
       getToken();
+      searchPosts();
       getName();
       getUserPosts();
       getPosts();
@@ -136,6 +137,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    searchPosts();
     getToken();
     getName();
     getPosts();
@@ -222,9 +224,18 @@ class _HomePageState extends State<HomePage> {
                       )
                   )
                 }),
-                // LocalSaveToken.deleteAccessToken()
-        // , Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => SignInPage()))
-                SizedBox(height: 100,),
+                ButtonWidget("Версия приложения", () => {
+                    showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text('Версия приложения'),
+                          content: Text('1.1.9'),
+                          actions: [
+                            TextButton(onPressed: () => {Navigator.pop(context)}, child: Text('Ок')),
+                          ],
+                        )
+                    ),
+                }),
               ],
             )
           ],

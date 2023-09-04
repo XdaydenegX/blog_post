@@ -31,6 +31,7 @@ class _CommentState extends State<CommentPage> {
     Future.delayed(Duration.zero, () {
       getUser();
       getToken();
+      getComments();
     });
   }
 
@@ -65,6 +66,7 @@ class _CommentState extends State<CommentPage> {
     final res = jsonDecode(response.body);
     if (res['success']) {
       comments = res['response'];
+      comments = new List.from(comments.reversed);
       // created_date = DateFormat('dd.MM.yyyy').format(comments['created_at']);
       // created_time = DateFormat('HH:mm').format(comments['created_at']);
       print(' +++++ response: ${comments['response']} +++++ ');
@@ -75,6 +77,7 @@ class _CommentState extends State<CommentPage> {
   Widget build(BuildContext context) {
     getUser();
     getToken();
+    getComments();
     return Scaffold(
           appBar: AppBar(
             leading: BackButton(),
